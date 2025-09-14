@@ -1,3 +1,12 @@
+build:
+	python3 setup.py build
+	@echo "dev build install"
+dev:
+	pip install --editable .
+	@echo "dev pseudo install"
+dist:
+	python3 setup.py sdist
+	@echo "dist made"
 install:
 	python setup.py install
 	@echo ""
