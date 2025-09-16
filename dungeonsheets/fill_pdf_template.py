@@ -6,7 +6,11 @@ import warnings
 from fdfgen import forge_fdf
 from pypdf import PdfWriter, PdfReader
 
-from dungeonsheets.forms import mod_str
+#from dungeonsheets.forms import mod_str
+from dungeonsheets.stats import mod_str
+
+#JD
+from importlib_resources import files, as_file
 
 CHECKBOX_ON = "Yes"
 CHECKBOX_OFF = "Off"
@@ -27,7 +31,10 @@ def text_box(string):
     )
     return new_string
 
-
+#def mod_str(modifier):
+#	return stats.mod_str(modifier)
+	
+	
 def create_character_pdf_template(character, basename, flatten=False):
     # Prepare the list of fields
     fields = {
@@ -176,9 +183,14 @@ def create_character_pdf_template(character, basename, flatten=False):
     prof_text += "Languages: " + text_box(character.languages)
     fields["ProficienciesLang"] = prof_text
     # Prepare the actual PDF
-    dirname = os.path.join(os.path.dirname(os.path.abspath(__file__)), "forms/")
-    src_pdf = os.path.join(dirname, "blank-character-sheet-default.pdf")
-    return make_pdf(fields, src_pdf=src_pdf, basename=basename, flatten=flatten)
+    #new way
+    source = files('dungeonsheets.forms').joinpath('forms/blank-character-sheet-default.pdf')
+    # if source.is_file():
+    return make_pdf(fields, src_pdf=source, basename=basename, flatten=flatten)
+    #old way
+   # dirname = os.path.join(os.path.dirname(os.path.abspath(__file__)), "forms/")
+   # src_pdf = os.path.join(dirname, "blank-character-sheet-default.pdf")
+   # return make_pdf(fields, src_pdf=src_pdf, basename=basename, flatten=flatten)
 
 
 def create_personality_pdf_template(character, basename, flatten=False):
@@ -200,14 +212,23 @@ def create_personality_pdf_template(character, basename, flatten=False):
         "Treasure": text_box(character.treasure),
     }
     # Prepare the actual PDF
-    dirname = os.path.join(os.path.dirname(os.path.abspath(__file__)), "forms/")
-    src_pdf = os.path.join(dirname, "blank-personality-sheet-default.pdf")
+    #new way
+    source = files('dungeonsheets.forms').joinpath('forms/blank-personality-sheet-default.pdf')
     return make_pdf(
         fields,
-        src_pdf=src_pdf,
+        src_pdf=source,
         basename=basename,
         flatten=flatten,
     )
+    #old way
+    #dirname = os.path.join(os.path.dirname(os.path.abspath(__file__)), "forms/")
+    #src_pdf = os.path.join(dirname, "blank-personality-sheet-default.pdf")
+    #return make_pdf(
+    #    fields,
+     #   src_pdf=src_pdf,
+     #   basename=basename,
+     #   flatten=flatten,
+    #)
 
 
 def create_spells_pdf_template(character, basename, flatten=False):
@@ -371,8 +392,14 @@ def create_spells_pdf_template(character, basename, flatten=False):
             # for field in field_names:
             #     fields.append((field, field))
         # Make the actual pdf
-    dirname = os.path.join(os.path.dirname(os.path.abspath(__file__)), "forms/")
-    src_pdf = os.path.join(dirname, template_filename)
+        
+    #new way 
+    
+    #new way
+    source = files('dungeonsheets.forms').joinpath("forms/"+template_filename)
+    
+    #dirname = os.path.join(os.path.dirname(os.path.abspath(__file__)), "forms/")
+    #src_pdf = os.path.join(dirname, template_filename)
 
     basenames = []
     for page, page_fields in fields_per_page.items():
@@ -390,14 +417,21 @@ def create_spells_pdf_template(character, basename, flatten=False):
             )
         make_pdf(
             output_fields,
-            src_pdf=src_pdf,
+            src_pdf=source,
             basename=combined_basename,
             flatten=flatten,
         )
+
+#        make_pdf(
+#            output_fields,
+#            src_pdf=src_pdf,
+#            basename=combined_basename,
+#            flatten=flatten,
+#        )
     return basenames
 
 
-def make_pdf(fields: dict, src_pdf: str, basename: str, flatten: bool = False):
+def make_pdf(fields: dict, src_pdf: files, basename: str, flatten: bool = False):
     """Create a new PDF by applying fields to a src PDF document.
 
     Parameters
@@ -415,18 +449,20 @@ def make_pdf(fields: dict, src_pdf: str, basename: str, flatten: bool = False):
       editable.
 
     """
-    try:
-        _make_pdf_pdftk(fields, src_pdf, basename, flatten)
-    except FileNotFoundError:
-        # pdftk could not run, so alert the user and use pypdf
-        warnings.warn(
-            f"Could not run `{PDFTK_CMD}`, using fallback; forcing `--editable`.",
-            RuntimeWarning,
-        )
-        _make_pdf_pypdf(fields, src_pdf, basename, flatten=flatten)
+    _make_pdf_pypdf(fields, src_pdf, basename, flatten=flatten)
+    
+#    try:
+#        _make_pdf_pdftk(fields, src_pdf, basename, flatten)
+#    except FileNotFoundError:
+#        # pdftk could not run, so alert the user and use pypdf
+#        warnings.warn(
+#            f"Could not run `{PDFTK_CMD}`, using fallback; forcing `--editable`.",
+#           RuntimeWarning,
+#        )
+#        _make_pdf_pypdf(fields, src_pdf, basename, flatten=flatten)
 
 
-def _make_pdf_pypdf(fields: dict, src_pdf: str, basename: str, flatten: bool = False):
+def _make_pdf_pypdf(fields: dict, src_pdf: files, basename: str, flatten: bool = False):
     """
     Writes the dictionary values to the pdf. Supports text and checkboxes.
     Does so by updating each individual annotation with the contents of the fiels.
@@ -453,27 +489,27 @@ def _make_pdf_pypdf(fields: dict, src_pdf: str, basename: str, flatten: bool = F
         writer.write(output_stream)
 
 
-def _make_pdf_pdftk(fields, src_pdf, basename, flatten=False):
-    """More robust way to make a PDF, but has a hard dependency."""
-    # Create the actual FDF file
-    fdfname = basename + ".fdf"
-
-    fdf = forge_fdf("", fields, [], [], [])
-    fdf_file = open(fdfname, "wb")
-    fdf_file.write(fdf)
-    fdf_file.close()
-    # Build the final flattened PDF documents
-    dest_pdf = basename + ".pdf"
-    popenargs = [
-        PDFTK_CMD,
-        src_pdf,
-        "fill_form",
-        fdfname,
-        "output",
-        dest_pdf,
-    ]
-    if flatten:
-        popenargs.append("flatten")
-    subprocess.call(popenargs)
-    # Clean up temporary files
-    os.remove(fdfname)
+#def _make_pdf_pdftk(fields, src_pdf, basename, flatten=False):
+#    """More robust way to make a PDF, but has a hard dependency."""
+#    # Create the actual FDF file
+#    fdfname = basename + ".fdf"
+#
+#    fdf = forge_fdf("", fields, [], [], [])
+#    fdf_file = open(fdfname, "wb")
+#    fdf_file.write(fdf)
+#    fdf_file.close()
+#    # Build the final flattened PDF documents
+#    dest_pdf = basename + ".pdf"
+#    popenargs = [
+#        PDFTK_CMD,
+#        src_pdf,
+#        "fill_form",
+#        fdfname,
+#        "output",
+#        dest_pdf,
+#    ]
+#    if flatten:
+#        popenargs.append("flatten")
+#    subprocess.call(popenargs)
+#    # Clean up temporary files
+#    os.remove(fdfname)

@@ -20,6 +20,9 @@ setup(
         'sphinx',
         'EbookLib',
         'reportlab',
+        'pipdf',
+        'importlib_resources; python_version < "3.7"',
+        'importlib-resources',
     ],
     entry_points={
         'console_scripts': [

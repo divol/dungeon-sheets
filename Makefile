@@ -1,4 +1,5 @@
 build:
+	#	source .venv./bin/activate
 	python3 setup.py build
 	@echo "dev build install"
 dev:
